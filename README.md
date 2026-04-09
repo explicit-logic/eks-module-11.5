@@ -59,3 +59,51 @@ Click **Validate** to confirm access.
 - Script Path: `Jenkinsfile`
 
 3. Click **Save** — Jenkins will scan the repository and create a job for each branch.
+
+
+#### Store credentials in Jenkins
+
+Go to `k8s-digital-ocean` → **Credentials** → **Global** → **Add Credentials**
+
+Add **Secret file** credentials:
+
+File: upload a kubeconfig file of your digitalocean k8s cluster
+
+ID: `digitalocean`
+
+![](./images/add-secret-file.png)
+
+### Install Kubernetes CLI Jenkins plugin
+
+- Navigate to `Manage Jenkins` -> `Plugins` -> `Available plugins`
+
+- search for `Kubernetes CLI`
+
+- Install
+
+![](./images/kubernetes-cli-plugin.png)
+
+- Restart Jenkins to complete installation
+
+> SSH to jenkins server and start jenkins container again
+
+
+### Configure `Jenkinsfile` to deploy to LKE cluster
+
+Get `serverUrl` from your `kubeconfig` file clusters -> cluster -> server
+
+Add the following to Jenkis file
+
+```groovy
+stage('deploy') {
+    steps {
+        script {
+            echo "deploying docker image..."
+            withKubeConfig([credentialsId: 'digitalocean', serverUrl: params.SERVER_URL]) {
+                sh 'kubectl create deployment nginx-deployment --image=nginx'
+            }
+        }
+    }
+}
+```
+
