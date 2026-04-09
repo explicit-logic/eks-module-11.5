@@ -14,96 +14,79 @@ This repository contains a demo project created as part of my **DevOps studies**
 
 ---
 
-### Overview
+### 1. Create a K8s Cluster on DigitalOcean
 
-- Kubectl command line tool available inside Jenkins container
+1. Create a minimal Kubernetes cluster with **1 node** in the DigitalOcean console.
 
-- Install Kubernetes CLI Jenkins plugin - Execute kubectl with kubeconfig credentials
+   ![Create cluster](./images/create-cluster.png)
 
-- Configure `Jenkinsfile` to deploy to LKE cluster
+2. Download the kubeconfig file and set it as your active context:
 
----
+   ```sh
+   export KUBECONFIG=k8s-kubeconfig.yaml
+   ```
 
-### Create K8s cluster on DigitalOcean
+### 2. Configure a Multibranch Pipeline in Jenkins
 
-- Create a minimal kubernetes cluster with 1 node
+1. Go to **Dashboard** → **New Item**.
+2. Name it `k8s-digital-ocean`, select **Multibranch Pipeline**, and click **OK**.
 
-![](./images/create-cluster.png)
+3. Under **Branch Sources**, click **Add source** → **GitHub** and fill in:
 
-- Download kubeconfig file and point to it
+   | Field                | Value                                                |
+   |----------------------|------------------------------------------------------|
+   | Credentials          | `github`                                             |
+   | Repository HTTPS URL | `https://github.com/explicit-logic/eks-module-11.5`  |
 
-```sh
-export KUBECONFIG=k8s-kubeconfig.yaml
-```
+   Click **Validate** to confirm access.
 
-### Configure a Multibranch Pipeline in Jenkins
+4. Under **Behaviors**, click **Add** and enable:
+   - `Discover branches`
 
-1. Go to **Dashboard** → **New Item**
-2. Name it `k8s-digital-ocean`, select **Multibranch Pipeline**, click **OK**
+5. Under **Build Configuration**, set:
+   - Script Path: `Jenkinsfile`
 
-**Branch Sources:**
+6. Click **Save** — Jenkins will scan the repository and create a job for each branch.
 
-Click **Add source** → **GitHub** and fill in:
+#### Store Credentials in Jenkins
 
-| Field | Value |
-|---|---|
-| Credentials | `github` |
-| Repository HTTPS URL | `https://github.com/explicit-logic/eks-module-11.5` |
+1. Navigate to `k8s-digital-ocean` → **Credentials** → **Global** → **Add Credentials**.
+2. Select **Secret file** as the credential type.
+3. Upload the kubeconfig file of your DigitalOcean K8s cluster.
+4. Set the **ID** to `digitalocean`.
 
-Click **Validate** to confirm access.
+   ![Add secret file](./images/add-secret-file.png)
 
-**Behaviors** — click **Add** and enable:
-- `Discover branches`
+### 3. Install the Kubernetes CLI Jenkins Plugin
 
-**Build Configuration:**
-- Script Path: `Jenkinsfile`
+1. Navigate to **Manage Jenkins** → **Plugins** → **Available plugins**.
+2. Search for `Kubernetes CLI` and install it.
 
-3. Click **Save** — Jenkins will scan the repository and create a job for each branch.
+   ![Kubernetes CLI plugin](./images/kubernetes-cli-plugin.png)
 
+3. Restart Jenkins to complete the installation.
 
-#### Store credentials in Jenkins
+   > **Note:** SSH into the Jenkins server and start the Jenkins container again if running in Docker.
 
-Go to `k8s-digital-ocean` → **Credentials** → **Global** → **Add Credentials**
+### 4. Configure the `Jenkinsfile` to Deploy to the K8s Cluster
 
-Add **Secret file** credentials:
+1. Retrieve the `serverUrl` from your kubeconfig file: `clusters` → `cluster` → `server`.
 
-File: upload a kubeconfig file of your digitalocean k8s cluster
+2. Add the following deploy stage to your `Jenkinsfile`:
 
-ID: `digitalocean`
+   ```groovy
+   stage('deploy') {
+       steps {
+           script {
+               echo "deploying docker image..."
+               withKubeConfig([credentialsId: 'digitalocean', serverUrl: params.SERVER_URL]) {
+                   sh 'kubectl create deployment nginx-deployment --image=nginx'
+               }
+           }
+       }
+   }
+   ```
 
-![](./images/add-secret-file.png)
+### Demo
 
-### Install Kubernetes CLI Jenkins plugin
-
-- Navigate to `Manage Jenkins` -> `Plugins` -> `Available plugins`
-
-- search for `Kubernetes CLI`
-
-- Install
-
-![](./images/kubernetes-cli-plugin.png)
-
-- Restart Jenkins to complete installation
-
-> SSH to jenkins server and start jenkins container again
-
-
-### Configure `Jenkinsfile` to deploy to LKE cluster
-
-Get `serverUrl` from your `kubeconfig` file clusters -> cluster -> server
-
-Add the following to Jenkis file
-
-```groovy
-stage('deploy') {
-    steps {
-        script {
-            echo "deploying docker image..."
-            withKubeConfig([credentialsId: 'digitalocean', serverUrl: params.SERVER_URL]) {
-                sh 'kubectl create deployment nginx-deployment --image=nginx'
-            }
-        }
-    }
-}
-```
-
+![Demo](./images/demo.gif)
